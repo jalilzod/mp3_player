@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../utils/song_display.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../cubit/library/library_cubit.dart';
 import '../cubit/library/library_state.dart';
@@ -44,7 +46,7 @@ class PlayerPage extends StatelessWidget {
       builder: (context, state) {
         final song = state.currentSong;
         if (song == null) {
-          return const Scaffold(body: Center(child: Text('Nothing playing')));
+          return Scaffold(body: Center(child: Text(context.s.nothingPlaying)));
         }
 
         return GestureDetector(
@@ -140,14 +142,14 @@ class _TopBar extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                const Text('NOW PLAYING',
-                    style: TextStyle(
+                Text(context.s.nowPlaying,
+                    style: const TextStyle(
                         fontSize: 11,
                         letterSpacing: 2,
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text(state.currentSong?.album ?? '',
+                Text(state.currentSong?.albumText(context.s) ?? '',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -196,7 +198,7 @@ class _TitleRow extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                   const SizedBox(height: 4),
-                  Text(song.artist,
+                  Text(song.artistText(context.s),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -237,14 +239,15 @@ class _BottomBar extends StatelessWidget {
         _Pill(
           icon: Icons.bedtime_outlined,
           label: state.sleepAt == null
-              ? 'Sleep'
-              : '${state.sleepAt!.difference(DateTime.now()).inMinutes + 1}m',
+              ? context.s.sleep
+              : context.s.minutesShort(
+                  state.sleepAt!.difference(DateTime.now()).inMinutes + 1),
           active: state.sleepAt != null,
           onTap: () => PlayerSheets.showSleepTimer(context),
         ),
         _Pill(
           icon: Icons.playlist_play_rounded,
-          label: 'Queue',
+          label: context.s.queue,
           active: false,
           onTap: () => PlayerSheets.showQueue(context),
         ),

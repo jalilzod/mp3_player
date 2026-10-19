@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/playback_enums.dart' as pe;
 import '../cubit/player/player_cubit.dart';
@@ -48,13 +49,13 @@ class PlayerControls extends StatelessWidget {
               icon: Icons.shuffle_rounded,
               active: state.shuffle,
               onTap: cubit.toggleShuffle,
-              tooltip: 'Shuffle',
+              tooltip: context.s.shuffle,
             ),
             _ToggleIcon(
               icon: Icons.stop_rounded,
               active: false,
               onTap: cubit.stop,
-              tooltip: 'Stop',
+              tooltip: context.s.stop,
             ),
             _ToggleIcon(
               icon: state.repeatMode == pe.RepeatMode.one
@@ -62,7 +63,7 @@ class PlayerControls extends StatelessWidget {
                   : Icons.repeat_rounded,
               active: state.repeatMode != pe.RepeatMode.off,
               onTap: cubit.cycleRepeat,
-              tooltip: 'Repeat',
+              tooltip: context.s.repeat,
             ),
           ],
         ),

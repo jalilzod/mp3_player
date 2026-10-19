@@ -5,6 +5,21 @@ import '../../../domain/entities/song.dart';
 
 enum LibraryStatus { initial, loading, loaded, permissionDenied, error }
 
+enum LibraryNoticeType { imported, importFailed }
+
+/// One-time message for the UI (shown as a snackbar, translated there).
+class LibraryNotice extends Equatable {
+  final LibraryNoticeType type;
+  final int count;
+  final int id; // makes every notice unique so it shows even if repeated
+
+  LibraryNotice(this.type, {this.count = 0})
+      : id = DateTime.now().microsecondsSinceEpoch;
+
+  @override
+  List<Object?> get props => [type, count, id];
+}
+
 class LibraryState extends Equatable {
   final LibraryStatus status;
   final List<Song> songs;
@@ -12,6 +27,7 @@ class LibraryState extends Equatable {
   final String query;
   final SongSort sort;
   final String? message;
+  final LibraryNotice? notice;
 
   const LibraryState({
     this.status = LibraryStatus.initial,
@@ -20,6 +36,7 @@ class LibraryState extends Equatable {
     this.query = '',
     this.sort = SongSort.title,
     this.message,
+    this.notice,
   });
 
   bool isFavorite(String id) => favoriteIds.contains(id);
@@ -62,6 +79,7 @@ class LibraryState extends Equatable {
     String? query,
     SongSort? sort,
     String? message,
+    LibraryNotice? notice,
   }) =>
       LibraryState(
         status: status ?? this.status,
@@ -70,8 +88,9 @@ class LibraryState extends Equatable {
         query: query ?? this.query,
         sort: sort ?? this.sort,
         message: message,
+        notice: notice,
       );
 
   @override
-  List<Object?> get props => [status, songs, favoriteIds, query, sort, message];
+  List<Object?> get props => [status, songs, favoriteIds, query, sort, message, notice];
 }

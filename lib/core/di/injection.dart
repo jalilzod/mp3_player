@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/locale_cubit.dart';
 import '../../features/music/data/datasources/artwork_loader.dart';
 import '../../features/music/data/datasources/favorites_local_datasource.dart';
 import '../../features/music/data/datasources/media_store_channel.dart';
@@ -61,6 +62,7 @@ Future<void> initDependencies() async {
 
   // Cubits
   sl
+    ..registerFactory(() => LocaleCubit(sl()))
     ..registerFactory(() => LibraryCubit(
           requestPermission: sl(),
           getSongs: sl(),

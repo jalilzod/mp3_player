@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../utils/song_display.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../cubit/player/player_cubit.dart';
@@ -27,10 +29,11 @@ class PlayerSheets {
               BlocBuilder<PlayerCubit, PlayerViewState>(
             builder: (context, state) => Column(
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Text('Up next',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(context.s.upNext,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700)),
                 ),
                 Expanded(
                   child: ListView.builder(
@@ -48,7 +51,7 @@ class PlayerSheets {
                               color: isCurrent ? AppColors.secondary : Colors.white,
                               fontWeight: FontWeight.w600,
                             )),
-                        subtitle: Text(song.artist,
+                        subtitle: Text(song.artistText(context.s),
                             maxLines: 1,
                             style: const TextStyle(color: AppColors.textSecondary)),
                         trailing: isCurrent
@@ -77,8 +80,9 @@ class PlayerSheets {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Playback speed',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              Text(context.s.playbackSpeed,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 10,
@@ -107,28 +111,29 @@ class PlayerSheets {
   static void showSleepTimer(BuildContext context) {
     final cubit = context.read<PlayerCubit>();
     final active = cubit.state.sleepAt;
+    final s = context.s;
     showModalBottomSheet(
       context: context,
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Sleep timer',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(s.sleepTimer,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w700)),
             if (active != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'Stops in ${active.difference(DateTime.now()).inMinutes + 1} min',
+                  s.stopsInMinutes(
+                      active.difference(DateTime.now()).inMinutes + 1),
                   style: const TextStyle(color: AppColors.secondary),
                 ),
               ),
             const SizedBox(height: 8),
             ...AppConstants.sleepTimerOptions.map((d) => ListTile(
                   leading: const Icon(Icons.bedtime_outlined),
-                  title: Text(d.inMinutes >= 60
-                      ? '${d.inHours} hour'
-                      : '${d.inMinutes} minutes'),
+                  title: Text(s.durationOption(d)),
                   onTap: () {
                     cubit.setSleepTimer(d);
                     Navigator.pop(context);
@@ -138,8 +143,8 @@ class PlayerSheets {
               ListTile(
                 leading: const Icon(Icons.timer_off_outlined,
                     color: AppColors.secondary),
-                title: const Text('Turn off timer',
-                    style: TextStyle(color: AppColors.secondary)),
+                title: Text(s.turnOffTimer,
+                    style: const TextStyle(color: AppColors.secondary)),
                 onTap: () {
                   cubit.setSleepTimer(null);
                   Navigator.pop(context);

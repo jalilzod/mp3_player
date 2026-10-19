@@ -73,10 +73,10 @@ class LibraryCubit extends Cubit<LibraryState> {
       emit(state.copyWith(
         status: LibraryStatus.loaded,
         songs: songs,
-        message: 'Imported $count song${count == 1 ? '' : 's'}',
+        notice: LibraryNotice(LibraryNoticeType.imported, count: count),
       ));
     } catch (e) {
-      emit(state.copyWith(message: 'Import failed'));
+      emit(state.copyWith(notice: LibraryNotice(LibraryNoticeType.importFailed)));
     }
   }
 

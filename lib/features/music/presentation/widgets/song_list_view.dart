@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/song.dart';
 import '../cubit/library/library_cubit.dart';
@@ -111,13 +112,13 @@ class _ListHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 16, 8),
       child: Row(
         children: [
-          Text('$count songs',
+          Text(context.s.songsCount(count),
               style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
           const Spacer(),
           TextButton.icon(
             onPressed: onShuffle,
             icon: const Icon(Icons.shuffle_rounded, size: 18),
-            label: const Text('Shuffle'),
+            label: Text(context.s.shuffle),
             style: TextButton.styleFrom(foregroundColor: Colors.white),
           ),
           const SizedBox(width: 4),

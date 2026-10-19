@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/song_display.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/duration_formatter.dart';
 import '../../domain/entities/song.dart';
@@ -27,9 +29,10 @@ class SongTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final artist = song.artistText(context.s);
     final subtitle = song.duration > Duration.zero
-        ? '${song.artist}  •  ${song.duration.toClock()}'
-        : song.artist;
+        ? '$artist  •  ${song.duration.toClock()}'
+        : artist;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),

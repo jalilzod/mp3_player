@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../utils/song_display.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/position_data.dart';
 import '../cubit/player/player_cubit.dart';
@@ -75,7 +77,7 @@ class MiniPlayer extends StatelessWidget {
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 15)),
                                             const SizedBox(height: 2),
-                                            Text(song.artist,
+                                            Text(song.artistText(context.s),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(

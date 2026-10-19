@@ -28,10 +28,9 @@ class SongModel extends Song {
     return SongModel(
       id: 'lib_$id',
       title: (title == null || title.isEmpty) ? 'Unknown title' : title,
-      artist: (artist == null || artist.isEmpty || artist == '<unknown>')
-          ? 'Unknown artist'
-          : artist,
-      album: (album == null || album.isEmpty) ? 'Unknown album' : album,
+      // Empty = unknown; the UI shows a translated "Unknown artist/album".
+      artist: (artist == null || artist == '<unknown>') ? '' : artist,
+      album: album ?? '',
       uri: map['uri'] as String,
       duration: Duration(milliseconds: (map['duration'] as num?)?.toInt() ?? 0),
       artworkId: id,
@@ -55,8 +54,8 @@ class SongModel extends Song {
     return SongModel(
       id: 'file_${file.path.hashCode}',
       title: hasArtist ? parts.sublist(1).join(' - ').trim() : name,
-      artist: hasArtist ? parts.first.trim() : 'Unknown artist',
-      album: 'Imported',
+      artist: hasArtist ? parts.first.trim() : '',
+      album: '',
       uri: file.path,
       duration: Duration.zero, // resolved by the player once loaded
       dateAdded: modified,

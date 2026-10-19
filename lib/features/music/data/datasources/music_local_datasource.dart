@@ -79,7 +79,8 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   @override
   Future<int> importFiles() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
+      type: FileType.custom,
+      allowedExtensions: ['mp3', 'm4a', 'aac', 'wav', 'flac', 'aiff'],
       allowMultiple: true,
     );
     if (result == null) return 0;
