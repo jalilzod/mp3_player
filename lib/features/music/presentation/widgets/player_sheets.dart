@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../utils/song_display.dart';
-import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../cubit/player/player_cubit.dart';
 import '../cubit/player/player_state.dart';
+import '../utils/song_display.dart';
 import 'equalizer_bars.dart';
+import 'glass.dart';
+import 'pressable.dart';
 import 'song_artwork.dart';
 
 class PlayerSheets {
@@ -29,35 +32,48 @@ class PlayerSheets {
               BlocBuilder<PlayerCubit, PlayerViewState>(
             builder: (context, state) => Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(context.s.upNext,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
-                ),
+                SheetTitle(context.s.upNext,
+                    subtitle: context.s.songsCount(state.queue.length)),
                 Expanded(
                   child: ListView.builder(
                     controller: controller,
+                    padding: const EdgeInsets.only(bottom: 24),
                     itemCount: state.queue.length,
                     itemBuilder: (_, i) {
                       final song = state.queue[i];
                       final isCurrent = song.id == state.currentSong?.id;
-                      return ListTile(
-                        leading: SongArtwork(song: song, size: 44, radius: 10),
-                        title: Text(song.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isCurrent ? AppColors.secondary : Colors.white,
-                              fontWeight: FontWeight.w600,
-                            )),
-                        subtitle: Text(song.artistText(context.s),
-                            maxLines: 1,
-                            style: const TextStyle(color: AppColors.textSecondary)),
-                        trailing: isCurrent
-                            ? EqualizerBars(animating: state.isPlaying)
-                            : null,
-                        onTap: () => cubit.skipTo(song),
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          color: isCurrent
+                              ? AppColors.primary.withValues(alpha: 0.16)
+                              : Colors.transparent,
+                        ),
+                        child: ListTile(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18)),
+                          leading: SongArtwork(song: song, size: 46, radius: 12),
+                          title: Text(song.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isCurrent ? AppColors.primaryLight : Colors.white,
+                                fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+                              )),
+                          subtitle: Text(song.artistText(context.s),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: AppColors.textSecondary)),
+                          trailing: isCurrent
+                              ? EqualizerBars(animating: state.isPlaying)
+                              : null,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            cubit.skipTo(song);
+                          },
+                        ),
                       );
                     },
                   ),
@@ -74,30 +90,47 @@ class PlayerSheets {
     final cubit = context.read<PlayerCubit>();
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(context.s.playbackSpeed,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
+              SheetTitle(context.s.playbackSpeed),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 alignment: WrapAlignment.center,
-                children: AppConstants.playbackSpeeds.map((s) {
-                  final selected = cubit.state.speed == s;
-                  return ChoiceChip(
-                    label: Text('${s}x'),
-                    selected: selected,
-                    selectedColor: AppColors.primary,
-                    onSelected: (_) {
-                      cubit.setSpeed(s);
-                      Navigator.pop(context);
+                children: AppConstants.playbackSpeeds.map((speed) {
+                  final selected = cubit.state.speed == speed;
+                  return Pressable(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      cubit.setSpeed(speed);
+                      Navigator.pop(sheetContext);
                     },
+                    child: Container(
+                      width: 92,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: selected ? AppColors.accentGradient : null,
+                        color: selected ? null : AppColors.glass,
+                        border: selected
+                            ? null
+                            : Border.all(color: AppColors.glassBorder),
+                        boxShadow: selected
+                            ? AppColors.glow(AppColors.primary, strength: 0.5)
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('${speed}x',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: selected ? Colors.white : AppColors.textSecondary,
+                          )),
+                    ),
                   );
                 }).toList(),
               ),
@@ -114,43 +147,39 @@ class PlayerSheets {
     final s = context.s;
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(s.sleepTimer,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700)),
-            if (active != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  s.stopsInMinutes(
-                      active.difference(DateTime.now()).inMinutes + 1),
-                  style: const TextStyle(color: AppColors.secondary),
-                ),
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetTitle(
+                s.sleepTimer,
+                subtitle: active == null
+                    ? null
+                    : s.stopsInMinutes(active.difference(DateTime.now()).inMinutes + 1),
               ),
-            const SizedBox(height: 8),
-            ...AppConstants.sleepTimerOptions.map((d) => ListTile(
-                  leading: const Icon(Icons.bedtime_outlined),
-                  title: Text(s.durationOption(d)),
+              ...AppConstants.sleepTimerOptions.map((d) => SheetOption(
+                    icon: Icons.bedtime_outlined,
+                    label: s.durationOption(d),
+                    onTap: () {
+                      cubit.setSleepTimer(d);
+                      Navigator.pop(sheetContext);
+                    },
+                  )),
+              if (active != null)
+                SheetOption(
+                  icon: Icons.timer_off_outlined,
+                  label: s.turnOffTimer,
+                  danger: true,
                   onTap: () {
-                    cubit.setSleepTimer(d);
-                    Navigator.pop(context);
+                    cubit.setSleepTimer(null);
+                    Navigator.pop(sheetContext);
                   },
-                )),
-            if (active != null)
-              ListTile(
-                leading: const Icon(Icons.timer_off_outlined,
-                    color: AppColors.secondary),
-                title: Text(s.turnOffTimer,
-                    style: const TextStyle(color: AppColors.secondary)),
-                onTap: () {
-                  cubit.setSleepTimer(null);
-                  Navigator.pop(context);
-                },
-              ),
-          ],
+                ),
+            ],
+          ),
         ),
       ),
     );

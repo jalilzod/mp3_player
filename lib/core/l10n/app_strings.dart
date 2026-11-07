@@ -29,6 +29,7 @@ abstract class AppStrings {
   String get noFavoritesYet;
   String get noFavoritesHint;
   String get somethingWentWrong;
+  String get tryAgain;
 
   // Permission
   String get allowAccessTitle;
@@ -38,7 +39,28 @@ abstract class AppStrings {
 
   // Import messages
   String importedSongs(int count);
+  String importedWithSkipped(int added, int skipped);
+  String get allAlreadyInLibrary;
   String get importFailed;
+  String get importing;
+
+  // Greeting + actions
+  String greeting(int hour);
+  String get playAll;
+  String get play;
+  String get more;
+  String get delete;
+  String get songRemoved;
+  String get undo;
+  String get addToFavorites;
+  String get removeFromFavorites;
+  String get swipeHint;
+
+  // Settings
+  String get settings;
+  String get restoreRemovedSongs;
+  String restoreRemovedHint(int count);
+  String restoredSongs(int count);
 
   // Sorting
   String get sortTitle;
@@ -97,7 +119,7 @@ class RuStrings extends AppStrings {
   @override String get languageName => 'Русский';
 
   @override String get appTitle => 'Музыка';
-  @override String get myMusic => 'Мaрям музыка';
+  @override String get myMusic => 'Марям музыка';
   @override String get sort => 'Сортировка';
   @override String get importSongs => 'Добавить песни';
   @override String get language => 'Язык';
@@ -109,7 +131,7 @@ class RuStrings extends AppStrings {
       '$count ${_plural(count, 'песня', 'песни', 'песен')}';
   @override String get shuffle => 'Перемешать';
 
-  @override String get noMusicFound => 'Музыка не найдена';
+  @override String get noMusicFound => 'Maryam не найдена';
   @override String get noResults => 'Ничего не найдено';
   @override String get noMusicHint =>
       'Добавьте музыку на устройство или нажмите +, чтобы импортировать песни.';
@@ -118,6 +140,7 @@ class RuStrings extends AppStrings {
   @override String get noFavoritesHint =>
       'Нажмите на сердечко у песни, чтобы добавить её сюда.';
   @override String get somethingWentWrong => 'Что-то пошло не так';
+  @override String get tryAgain => 'Повторить';
 
   @override String get allowAccessTitle => 'Разрешите доступ к музыке';
   @override String get allowAccessBody =>
@@ -128,7 +151,36 @@ class RuStrings extends AppStrings {
   @override String importedSongs(int count) =>
       '${_plural(count, 'Добавлена', 'Добавлено', 'Добавлено')} $count '
       '${_plural(count, 'песня', 'песни', 'песен')}';
+  @override String importedWithSkipped(int added, int skipped) =>
+      '${importedSongs(added)} · $skipped уже '
+      '${_plural(skipped, 'была', 'были', 'были')} в библиотеке';
+  @override String get allAlreadyInLibrary => 'Эти песни уже есть в библиотеке';
   @override String get importFailed => 'Не удалось добавить песни';
+  @override String get importing => 'Добавление…';
+
+  @override String greeting(int hour) {
+    if (hour >= 5 && hour < 12) return 'Доброе утро';
+    if (hour >= 12 && hour < 18) return 'Добрый день';
+    if (hour >= 18 && hour < 23) return 'Добрый вечер';
+    return 'Доброй ночи';
+  }
+  @override String get playAll => 'Слушать';
+  @override String get play => 'Воспроизвести';
+  @override String get more => 'Ещё';
+  @override String get delete => 'Удалить';
+  @override String get songRemoved => 'Песня удалена';
+  @override String get undo => 'Отменить';
+  @override String get addToFavorites => 'Добавить в избранное';
+  @override String get removeFromFavorites => 'Убрать из избранного';
+  @override String get swipeHint => 'Смахните влево, чтобы удалить';
+
+  @override String get settings => 'Настройки';
+  @override String get restoreRemovedSongs => 'Вернуть удалённые песни';
+  @override String restoreRemovedHint(int count) =>
+      '$count ${_plural(count, 'песня', 'песни', 'песен')} из памяти телефона';
+  @override String restoredSongs(int count) =>
+      '${_plural(count, 'Возвращена', 'Возвращено', 'Возвращено')} $count '
+      '${_plural(count, 'песня', 'песни', 'песен')}';
 
   @override String get sortTitle => 'Название';
   @override String get sortArtist => 'Исполнитель';
@@ -185,6 +237,7 @@ class EnStrings extends AppStrings {
   @override String get noFavoritesYet => 'No favorites yet';
   @override String get noFavoritesHint => 'Tap the heart on any song to add it here.';
   @override String get somethingWentWrong => 'Something went wrong';
+  @override String get tryAgain => 'Try again';
 
   @override String get allowAccessTitle => 'Allow access to your music';
   @override String get allowAccessBody =>
@@ -193,7 +246,33 @@ class EnStrings extends AppStrings {
   @override String get openSettings => 'Open settings';
 
   @override String importedSongs(int count) => 'Imported $count song${_s(count)}';
+  @override String importedWithSkipped(int added, int skipped) =>
+      '${importedSongs(added)} · $skipped already in library';
+  @override String get allAlreadyInLibrary => 'These songs are already in your library';
   @override String get importFailed => 'Import failed';
+  @override String get importing => 'Importing…';
+
+  @override String greeting(int hour) {
+    if (hour >= 5 && hour < 12) return 'Good morning';
+    if (hour >= 12 && hour < 18) return 'Good afternoon';
+    if (hour >= 18 && hour < 23) return 'Good evening';
+    return 'Good night';
+  }
+  @override String get playAll => 'Play';
+  @override String get play => 'Play';
+  @override String get more => 'More';
+  @override String get delete => 'Delete';
+  @override String get songRemoved => 'Song deleted';
+  @override String get undo => 'Undo';
+  @override String get addToFavorites => 'Add to favorites';
+  @override String get removeFromFavorites => 'Remove from favorites';
+  @override String get swipeHint => 'Swipe left to delete';
+
+  @override String get settings => 'Settings';
+  @override String get restoreRemovedSongs => 'Restore deleted songs';
+  @override String restoreRemovedHint(int count) =>
+      '$count song${_s(count)} from phone storage';
+  @override String restoredSongs(int count) => 'Restored $count song${_s(count)}';
 
   @override String get sortTitle => 'Title';
   @override String get sortArtist => 'Artist';

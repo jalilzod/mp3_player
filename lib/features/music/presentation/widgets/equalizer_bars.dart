@@ -14,7 +14,7 @@ class EqualizerBars extends StatefulWidget {
     super.key,
     required this.animating,
     this.size = 18,
-    this.color = AppColors.secondary,
+    this.color = AppColors.primaryLight,
   });
 
   @override

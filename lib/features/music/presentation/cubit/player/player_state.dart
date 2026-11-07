@@ -37,10 +37,11 @@ class PlayerViewState extends Equatable {
     double? speed,
     DateTime? sleepAt,
     bool clearSleep = false,
+    bool clearSong = false,
   }) =>
       PlayerViewState(
-        currentSong: currentSong ?? this.currentSong,
-        queue: queue ?? this.queue,
+        currentSong: clearSong ? null : (currentSong ?? this.currentSong),
+        queue: clearSong ? const [] : (queue ?? this.queue),
         isPlaying: isPlaying ?? this.isPlaying,
         isBuffering: isBuffering ?? this.isBuffering,
         shuffle: shuffle ?? this.shuffle,

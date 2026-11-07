@@ -91,10 +91,11 @@ class _Placeholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.gradientFor(song.album + song.artist);
+    final colors = AppColors.gradientFor(song.album + song.artist + song.title);
     return Container(
       width: size,
       height: size,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         gradient: LinearGradient(
@@ -103,8 +104,29 @@ class _Placeholder extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Icon(Icons.music_note_rounded,
-          color: Colors.white.withValues(alpha: 0.9), size: size * 0.45),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Soft light in the top-left corner for depth.
+          Positioned(
+            left: -size * 0.3,
+            top: -size * 0.3,
+            child: Container(
+              width: size * 0.9,
+              height: size * 0.9,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [
+                  Colors.white.withValues(alpha: 0.35),
+                  Colors.white.withValues(alpha: 0),
+                ]),
+              ),
+            ),
+          ),
+          Icon(Icons.music_note_rounded,
+              color: Colors.white.withValues(alpha: 0.92), size: size * 0.44),
+        ],
+      ),
     );
   }
 }

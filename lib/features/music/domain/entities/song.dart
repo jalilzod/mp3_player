@@ -27,6 +27,10 @@ class Song extends Equatable {
     this.dateAdded,
   });
 
+  /// True for files stored inside the app (imported / Files app).
+  /// These can be deleted for real; device-library songs are only hidden.
+  bool get isImportedFile => id.startsWith('file_');
+
   @override
   List<Object?> get props => [id];
 }

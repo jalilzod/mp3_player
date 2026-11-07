@@ -2,37 +2,49 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../utils/song_display.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../domain/entities/song.dart';
 import '../cubit/library/library_cubit.dart';
 import '../cubit/library/library_state.dart';
 import '../cubit/player/player_cubit.dart';
 import '../cubit/player/player_state.dart';
+import '../utils/song_display.dart';
+import '../widgets/aurora_background.dart';
 import '../widgets/favorite_button.dart';
+import '../widgets/glass.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/player_sheets.dart';
 import '../widgets/seek_bar.dart';
+import '../widgets/song_actions_sheet.dart';
 import '../widgets/song_artwork.dart';
 import '../widgets/vinyl_artwork.dart';
 
 class PlayerPage extends StatelessWidget {
   const PlayerPage({super.key});
 
-  /// Slide-up transition from the mini player.
+  /// Slides up from the mini player, with the artwork flying in (Hero).
   static void open(BuildContext context) {
+    HapticFeedback.lightImpact();
     Navigator.of(context).push(PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 450),
-      reverseTransitionDuration: const Duration(milliseconds: 350),
+      transitionDuration: const Duration(milliseconds: 520),
+      reverseTransitionDuration: const Duration(milliseconds: 380),
       pageBuilder: (_, __, ___) => const PlayerPage(),
       transitionsBuilder: (_, anim, __, child) {
         final curved = CurvedAnimation(
-            parent: anim, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+          parent: anim,
+          curve: Curves.easeOutQuart,
+          reverseCurve: Curves.easeInCubic,
+        );
         return SlideTransition(
           position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(curved),
-          child: child,
+          child: FadeTransition(
+            opacity: Tween(begin: 0.4, end: 1.0).animate(curved),
+            child: child,
+          ),
         );
       },
     ));
@@ -42,11 +54,14 @@ class PlayerPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final cubit = context.read<PlayerCubit>();
 
-    return BlocBuilder<PlayerCubit, PlayerViewState>(
+    return BlocConsumer<PlayerCubit, PlayerViewState>(
+      // The playing song was deleted and nothing is left → close the player.
+      listenWhen: (a, b) => a.currentSong != null && b.currentSong == null,
+      listener: (context, _) => Navigator.of(context).maybePop(),
       builder: (context, state) {
         final song = state.currentSong;
         if (song == null) {
-          return Scaffold(body: Center(child: Text(context.s.nothingPlaying)));
+          return const Scaffold(backgroundColor: AppColors.background);
         }
 
         return GestureDetector(
@@ -57,45 +72,26 @@ class PlayerPage extends StatelessWidget {
           // Swipe left / right to change song
           onHorizontalDragEnd: (d) {
             final v = d.primaryVelocity ?? 0;
-            if (v < -400) cubit.next();
-            if (v > 400) cubit.previous();
+            if (v < -400) {
+              HapticFeedback.selectionClick();
+              cubit.next();
+            } else if (v > 400) {
+              HapticFeedback.selectionClick();
+              cubit.previous();
+            }
           },
           child: Scaffold(
+            backgroundColor: AppColors.background,
             body: Stack(
               fit: StackFit.expand,
               children: [
-                // Blurred artwork background that cross-fades on song change.
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 700),
-                  child: SizedBox.expand(
-                    key: ValueKey(song.id),
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-                      child: FittedBox(
-                        fit: BoxFit.cover,
-                        child: SongArtwork(song: song, size: 300, radius: 0),
-                      ),
-                    ),
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.35),
-                        AppColors.background.withValues(alpha: 0.85),
-                        AppColors.background,
-                      ],
-                      stops: const [0, 0.55, 1],
-                    ),
-                  ),
-                ),
+                const AuroraBackground(intensity: 1.3),
+                _ArtworkBackdrop(song: song),
+                const _Shade(),
                 SafeArea(
                   child: LayoutBuilder(
                     builder: (context, c) {
-                      final artSize = math.min(c.maxWidth * 0.78, c.maxHeight * 0.42);
+                      final artSize = math.min(c.maxWidth * 0.76, c.maxHeight * 0.4);
                       return Column(
                         children: [
                           _TopBar(state: state),
@@ -104,11 +100,11 @@ class PlayerPage extends StatelessWidget {
                               song: song, isPlaying: state.isPlaying, size: artSize),
                           const Spacer(),
                           _TitleRow(state: state),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           SeekBar(stream: cubit.positionStream, onSeek: cubit.seek),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 4),
                           PlayerControls(state: state, cubit: cubit),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                           _BottomBar(state: state),
                           const SizedBox(height: 12),
                         ],
@@ -125,40 +121,101 @@ class PlayerPage extends StatelessWidget {
   }
 }
 
+/// Heavily blurred artwork behind everything; cross-fades on song change.
+class _ArtworkBackdrop extends StatelessWidget {
+  final Song song;
+  const _ArtworkBackdrop({required this.song});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 900),
+      child: Opacity(
+        key: ValueKey(song.id),
+        opacity: 0.55,
+        child: SizedBox.expand(
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SongArtwork(song: song, size: 300, radius: 0),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Darkens the bottom so text and controls stay readable.
+class _Shade extends StatelessWidget {
+  const _Shade();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.background.withValues(alpha: 0.25),
+            AppColors.background.withValues(alpha: 0.55),
+            AppColors.background.withValues(alpha: 0.92),
+          ],
+          stops: const [0, 0.5, 1],
+        ),
+      ),
+    );
+  }
+}
+
 class _TopBar extends StatelessWidget {
   final PlayerViewState state;
   const _TopBar({required this.state});
 
   @override
   Widget build(BuildContext context) {
+    final song = state.currentSong!;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
+          GlassIconButton(
+            icon: Icons.keyboard_arrow_down_rounded,
+            onTap: () => Navigator.pop(context),
           ),
           Expanded(
             child: Column(
               children: [
-                Text(context.s.nowPlaying,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 2,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(state.currentSong?.albumText(context.s) ?? '',
+                Text(
+                  context.s.nowPlaying,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 2.4,
+                    color: AppColors.primaryLight,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    song.albumText(context.s),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w600),
+                  ),
+                ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => PlayerSheets.showQueue(context),
-            icon: const Icon(Icons.queue_music_rounded),
+          GlassIconButton(
+            icon: Icons.more_horiz_rounded,
+            tooltip: context.s.more,
+            onTap: () => SongActionsSheet.show(context, song),
           ),
         ],
       ),
@@ -179,14 +236,18 @@ class _TitleRow extends StatelessWidget {
         children: [
           Expanded(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 450),
               transitionBuilder: (child, anim) => FadeTransition(
                 opacity: anim,
                 child: SlideTransition(
-                  position: Tween(begin: const Offset(0.15, 0), end: Offset.zero)
-                      .animate(anim),
+                  position: Tween(begin: const Offset(0.12, 0), end: Offset.zero)
+                      .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
                   child: child,
                 ),
+              ),
+              layoutBuilder: (current, previous) => Stack(
+                alignment: Alignment.centerLeft,
+                children: [...previous, if (current != null) current],
               ),
               child: Column(
                 key: ValueKey(song.id),
@@ -196,13 +257,15 @@ class _TitleRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                          fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
                   const SizedBox(height: 4),
                   Text(song.artistText(context.s),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 16, color: AppColors.textSecondary)),
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
@@ -227,72 +290,35 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _Pill(
-          icon: Icons.speed_rounded,
-          label: '${state.speed}x',
-          active: state.speed != 1.0,
-          onTap: () => PlayerSheets.showSpeed(context),
-        ),
-        _Pill(
-          icon: Icons.bedtime_outlined,
-          label: state.sleepAt == null
-              ? context.s.sleep
-              : context.s.minutesShort(
-                  state.sleepAt!.difference(DateTime.now()).inMinutes + 1),
-          active: state.sleepAt != null,
-          onTap: () => PlayerSheets.showSleepTimer(context),
-        ),
-        _Pill(
-          icon: Icons.playlist_play_rounded,
-          label: context.s.queue,
-          active: false,
-          onTap: () => PlayerSheets.showQueue(context),
-        ),
-      ],
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  const _Pill({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: active
-          ? AppColors.secondary.withValues(alpha: 0.18)
-          : Colors.white.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: active ? AppColors.secondary : Colors.white70),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: active ? AppColors.secondary : Colors.white70)),
-            ],
+    final s = context.s;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          PillButton(
+            icon: Icons.speed_rounded,
+            label: '${state.speed}x',
+            glass: true,
+            active: state.speed != 1.0,
+            onTap: () => PlayerSheets.showSpeed(context),
           ),
-        ),
+          PillButton(
+            icon: Icons.bedtime_outlined,
+            label: state.sleepAt == null
+                ? s.sleep
+                : s.minutesShort(state.sleepAt!.difference(DateTime.now()).inMinutes + 1),
+            glass: true,
+            active: state.sleepAt != null,
+            onTap: () => PlayerSheets.showSleepTimer(context),
+          ),
+          PillButton(
+            icon: Icons.queue_music_rounded,
+            label: s.queue,
+            glass: true,
+            onTap: () => PlayerSheets.showQueue(context),
+          ),
+        ],
       ),
     );
   }

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
-/// Heart with a bouncy scale animation.
+/// Heart that pops with an elastic bounce and a soft pink glow.
 class FavoriteButton extends StatelessWidget {
   final bool isFavorite;
   final VoidCallback onTap;
@@ -19,21 +19,33 @@ class FavoriteButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
+      visualDensity: VisualDensity.compact,
       onPressed: () {
         HapticFeedback.lightImpact();
         onTap();
       },
       icon: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        transitionBuilder: (child, anim) => ScaleTransition(
-          scale: CurvedAnimation(parent: anim, curve: Curves.elasticOut),
-          child: child,
-        ),
-        child: Icon(
-          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        duration: const Duration(milliseconds: 450),
+        switchInCurve: Curves.elasticOut,
+        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+        child: DecoratedBox(
           key: ValueKey(isFavorite),
-          size: size,
-          color: isFavorite ? AppColors.secondary : AppColors.textSecondary,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: isFavorite
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.45),
+                      blurRadius: size * 0.7,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Icon(
+            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            size: size,
+            color: isFavorite ? AppColors.primary : AppColors.textTertiary,
+          ),
         ),
       ),
     );

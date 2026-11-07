@@ -63,6 +63,17 @@ class PlayerCubit extends Cubit<PlayerViewState> {
 
   void setSpeed(double speed) => _player.setSpeed(speed);
 
+  /// Takes a deleted song out of the queue. If it was the only song,
+  /// playback stops and the mini player hides.
+  Future<void> removeSong(Song song) async {
+    final isCurrent = state.currentSong?.id == song.id;
+    final inQueue = state.queue.any((s) => s.id == song.id);
+    if (!isCurrent && !inQueue) return;
+    final wasOnly = isCurrent && state.queue.length <= 1;
+    await _player.removeSong(song.id);
+    if (wasOnly) emit(state.copyWith(clearSong: true, isPlaying: false));
+  }
+
   /// Pass null to cancel.
   void setSleepTimer(Duration? duration) {
     _sleepTimer?.cancel();

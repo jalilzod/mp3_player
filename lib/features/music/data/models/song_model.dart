@@ -42,7 +42,9 @@ class SongModel extends Song {
   }
 
   /// From a raw audio file in the app's documents folder.
-  factory SongModel.fromFile(File file) {
+  /// The id uses the path relative to [root], so it stays the same
+  /// after app updates (the absolute iOS path can change).
+  factory SongModel.fromFile(File file, {required String root}) {
     final name = p.basenameWithoutExtension(file.path);
     // "Artist - Title.mp3" convention
     final parts = name.split(' - ');
@@ -52,7 +54,7 @@ class SongModel extends Song {
       modified = file.lastModifiedSync();
     } catch (_) {}
     return SongModel(
-      id: 'file_${file.path.hashCode}',
+      id: 'file_${p.relative(file.path, from: root)}',
       title: hasArtist ? parts.sublist(1).join(' - ').trim() : name,
       artist: hasArtist ? parts.first.trim() : '',
       album: '',

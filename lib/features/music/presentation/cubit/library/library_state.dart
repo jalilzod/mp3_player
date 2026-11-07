@@ -5,19 +5,24 @@ import '../../../domain/entities/song.dart';
 
 enum LibraryStatus { initial, loading, loaded, permissionDenied, error }
 
-enum LibraryNoticeType { imported, importFailed }
+enum LibraryNoticeType { imported, allDuplicates, importFailed, deleted, restored }
 
 /// One-time message for the UI (shown as a snackbar, translated there).
 class LibraryNotice extends Equatable {
   final LibraryNoticeType type;
   final int count;
+  final int skipped;
+
+  /// The deleted song (for "Undo").
+  final Song? song;
+
   final int id; // makes every notice unique so it shows even if repeated
 
-  LibraryNotice(this.type, {this.count = 0})
+  LibraryNotice(this.type, {this.count = 0, this.skipped = 0, this.song})
       : id = DateTime.now().microsecondsSinceEpoch;
 
   @override
-  List<Object?> get props => [type, count, id];
+  List<Object?> get props => [type, count, skipped, song, id];
 }
 
 class LibraryState extends Equatable {
@@ -26,6 +31,10 @@ class LibraryState extends Equatable {
   final Set<String> favoriteIds;
   final String query;
   final SongSort sort;
+  final bool isImporting;
+
+  /// Device songs removed from the list (can be restored in settings).
+  final int hiddenCount;
   final String? message;
   final LibraryNotice? notice;
 
@@ -35,6 +44,8 @@ class LibraryState extends Equatable {
     this.favoriteIds = const {},
     this.query = '',
     this.sort = SongSort.title,
+    this.isImporting = false,
+    this.hiddenCount = 0,
     this.message,
     this.notice,
   });
@@ -46,6 +57,9 @@ class LibraryState extends Equatable {
 
   List<Song> get favoriteSongs =>
       _sorted(_filtered(songs.where((s) => favoriteIds.contains(s.id))));
+
+  /// Favorites that still exist in the library.
+  int get favoritesCount => songs.where((s) => favoriteIds.contains(s.id)).length;
 
   Iterable<Song> _filtered(Iterable<Song> input) {
     if (query.trim().isEmpty) return input;
@@ -78,6 +92,8 @@ class LibraryState extends Equatable {
     Set<String>? favoriteIds,
     String? query,
     SongSort? sort,
+    bool? isImporting,
+    int? hiddenCount,
     String? message,
     LibraryNotice? notice,
   }) =>
@@ -87,10 +103,23 @@ class LibraryState extends Equatable {
         favoriteIds: favoriteIds ?? this.favoriteIds,
         query: query ?? this.query,
         sort: sort ?? this.sort,
+        isImporting: isImporting ?? this.isImporting,
+        hiddenCount: hiddenCount ?? this.hiddenCount,
+        // message + notice are one-shot: cleared unless passed again.
         message: message,
         notice: notice,
       );
 
   @override
-  List<Object?> get props => [status, songs, favoriteIds, query, sort, message, notice];
+  List<Object?> get props => [
+        status,
+        songs,
+        favoriteIds,
+        query,
+        sort,
+        isImporting,
+        hiddenCount,
+        message,
+        notice,
+      ];
 }

@@ -179,6 +179,28 @@ class PlayerRepositoryImpl implements PlayerRepository {
   Future<void> setSpeed(double speed) => _player.setSpeed(speed);
 
   @override
+  Future<void> removeSong(String songId) async {
+    final index = _queue.indexWhere((s) => s.id == songId);
+    if (index < 0) return;
+    final source = _player.audioSource;
+
+    // Last song in the queue → stop and clear everything.
+    if (_queue.length == 1) {
+      await _player.stop();
+      _queue = const [];
+      if (source is ConcatenatingAudioSource) await source.clear();
+      _songsById.clear();
+      return;
+    }
+
+    // Children of the source are in the same order as _queue
+    // (shuffle only changes the play order, not the children).
+    _queue = List.unmodifiable([..._queue]..removeAt(index));
+    if (source is ConcatenatingAudioSource) await source.removeAt(index);
+    _songsById.remove(songId);
+  }
+
+  @override
   Future<void> dispose() => _player.dispose();
 
   // ---------------- Helpers ----------------

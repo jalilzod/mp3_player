@@ -6,17 +6,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/locale_cubit.dart';
 import '../../features/music/data/datasources/artwork_loader.dart';
 import '../../features/music/data/datasources/favorites_local_datasource.dart';
+import '../../features/music/data/datasources/hidden_songs_local_datasource.dart';
 import '../../features/music/data/datasources/media_store_channel.dart';
 import '../../features/music/data/datasources/music_local_datasource.dart';
 import '../../features/music/data/repositories/music_repository_impl.dart';
 import '../../features/music/data/repositories/player_repository_impl.dart';
 import '../../features/music/domain/repositories/music_repository.dart';
 import '../../features/music/domain/repositories/player_repository.dart';
+import '../../features/music/domain/usecases/delete_song.dart';
 import '../../features/music/domain/usecases/get_favorite_ids.dart';
+import '../../features/music/domain/usecases/get_hidden_count.dart';
 import '../../features/music/domain/usecases/get_songs.dart';
 import '../../features/music/domain/usecases/import_songs.dart';
 import '../../features/music/domain/usecases/open_app_settings.dart';
 import '../../features/music/domain/usecases/request_permission.dart';
+import '../../features/music/domain/usecases/restore_hidden_songs.dart';
 import '../../features/music/domain/usecases/toggle_favorite.dart';
 import '../../features/music/presentation/cubit/library/library_cubit.dart';
 import '../../features/music/presentation/cubit/player/player_cubit.dart';
@@ -42,12 +46,14 @@ Future<void> initDependencies() async {
     ..registerLazySingleton<MusicLocalDataSource>(
         () => MusicLocalDataSourceImpl(sl()))
     ..registerLazySingleton<FavoritesLocalDataSource>(
-        () => FavoritesLocalDataSourceImpl(sl()));
+        () => FavoritesLocalDataSourceImpl(sl()))
+    ..registerLazySingleton<HiddenSongsLocalDataSource>(
+        () => HiddenSongsLocalDataSourceImpl(sl()));
 
   // Repositories
   sl
     ..registerLazySingleton<MusicRepository>(
-        () => MusicRepositoryImpl(music: sl(), favorites: sl()))
+        () => MusicRepositoryImpl(music: sl(), favorites: sl(), hidden: sl()))
     ..registerLazySingleton<PlayerRepository>(
         () => PlayerRepositoryImpl(sl()));
 
@@ -58,7 +64,10 @@ Future<void> initDependencies() async {
     ..registerLazySingleton(() => ImportSongs(sl()))
     ..registerLazySingleton(() => GetFavoriteIds(sl()))
     ..registerLazySingleton(() => ToggleFavorite(sl()))
-    ..registerLazySingleton(() => OpenAppSettings(sl()));
+    ..registerLazySingleton(() => OpenAppSettings(sl()))
+    ..registerLazySingleton(() => DeleteSong(sl()))
+    ..registerLazySingleton(() => GetHiddenCount(sl()))
+    ..registerLazySingleton(() => RestoreHiddenSongs(sl()));
 
   // Cubits
   sl
@@ -70,6 +79,9 @@ Future<void> initDependencies() async {
           getFavoriteIds: sl(),
           toggleFavorite: sl(),
           openAppSettings: sl(),
+          deleteSong: sl(),
+          getHiddenCount: sl(),
+          restoreHiddenSongs: sl(),
         ))
     ..registerFactory(() => PlayerCubit(sl()));
 }

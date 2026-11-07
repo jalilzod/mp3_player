@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/l10n/app_strings.dart';
-import '../../../../core/l10n/locale_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/entities/playback_enums.dart';
 import '../cubit/library/library_cubit.dart';
 import '../cubit/library/library_state.dart';
-import '../utils/song_display.dart';
+import '../widgets/aurora_background.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/glass.dart';
+import '../widgets/library_sheets.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/song_list_view.dart';
 
@@ -29,43 +31,84 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
+  void _showNotice(BuildContext context, LibraryNotice notice) {
+    final s = context.s;
+    final cubit = context.read<LibraryCubit>();
+    final (IconData icon, String text) = switch (notice.type) {
+      LibraryNoticeType.imported => (
+          Icons.check_circle_rounded,
+          notice.skipped > 0
+              ? s.importedWithSkipped(notice.count, notice.skipped)
+              : s.importedSongs(notice.count),
+        ),
+      LibraryNoticeType.allDuplicates => (Icons.info_rounded, s.allAlreadyInLibrary),
+      LibraryNoticeType.importFailed => (Icons.error_rounded, s.importFailed),
+      LibraryNoticeType.deleted => (Icons.delete_rounded, s.songRemoved),
+      LibraryNoticeType.restored => (Icons.restore_rounded, s.restoredSongs(notice.count)),
+    };
+    final song = notice.song;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 104),
+        duration: Duration(seconds: notice.type == LibraryNoticeType.deleted ? 4 : 3),
+        content: Row(
+          children: [
+            Icon(icon, color: AppColors.primaryLight, size: 22),
+            const SizedBox(width: 12),
+            Expanded(child: Text(text)),
+          ],
+        ),
+        action: notice.type == LibraryNoticeType.deleted && song != null
+            ? SnackBarAction(
+                label: s.undo,
+                textColor: AppColors.primaryLight,
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  cubit.undoDelete(song);
+                },
+              )
+            : null,
+      ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
-        child: Stack(
-          children: [
-            SafeArea(
-              bottom: false,
-              child: BlocConsumer<LibraryCubit, LibraryState>(
-                listenWhen: (a, b) => b.notice != null && a.notice != b.notice,
-                listener: (context, state) {
-                  final s = context.s;
-                  final notice = state.notice!;
-                  final text = switch (notice.type) {
-                    LibraryNoticeType.imported => s.importedSongs(notice.count),
-                    LibraryNoticeType.importFailed => s.importFailed,
-                  };
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(text)));
-                },
-                builder: (context, state) => Column(
-                  children: [
-                    _Header(state: state),
-                    _SearchField(controller: _searchController),
-                    _Tabs(controller: _tabs, favoritesCount: state.favoriteIds.length),
-                    Expanded(child: _buildBody(context, state)),
-                  ],
-                ),
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AuroraBackground()),
+          SafeArea(
+            bottom: false,
+            child: BlocConsumer<LibraryCubit, LibraryState>(
+              listenWhen: (a, b) => b.notice != null && a.notice != b.notice,
+              listener: (context, state) => _showNotice(context, state.notice!),
+              builder: (context, state) => Column(
+                children: [
+                  _Entrance(delay: 0, child: _Header(state: state)),
+                  _Entrance(
+                    delay: 80,
+                    child: _SearchField(controller: _searchController),
+                  ),
+                  _Entrance(
+                    delay: 160,
+                    child: _Tabs(
+                      controller: _tabs,
+                      favoritesCount: state.favoritesCount,
+                    ),
+                  ),
+                  Expanded(child: _buildBody(context, state)),
+                ],
               ),
             ),
-            const Align(
-              alignment: Alignment.bottomCenter,
-              child: SafeArea(top: false, child: MiniPlayer()),
-            ),
-          ],
-        ),
+          ),
+          const Align(
+            alignment: Alignment.bottomCenter,
+            child: SafeArea(top: false, child: MiniPlayer()),
+          ),
+        ],
       ),
     );
   }
@@ -76,11 +119,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       case LibraryStatus.initial:
       case LibraryStatus.loading:
         return const Center(
-            child: CircularProgressIndicator(color: AppColors.secondary));
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.primary),
+          ),
+        );
       case LibraryStatus.permissionDenied:
         return const _PermissionView();
       case LibraryStatus.error:
-        return Center(child: Text(s.somethingWentWrong));
+        return Center(
+          child: EmptyState(
+            icon: Icons.error_outline_rounded,
+            title: s.somethingWentWrong,
+            subtitle: state.message ?? '',
+            actionLabel: s.tryAgain,
+            actionIcon: Icons.refresh_rounded,
+            onAction: context.read<LibraryCubit>().load,
+          ),
+        );
       case LibraryStatus.loaded:
         return TabBarView(
           controller: _tabs,
@@ -88,21 +145,45 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             SongListView(
               songs: state.visibleSongs,
               library: state,
-              emptyIcon: Icons.library_music_outlined,
+              emptyIcon: state.query.isEmpty
+                  ? Icons.library_music_rounded
+                  : Icons.search_off_rounded,
               emptyTitle: state.query.isEmpty ? s.noMusicFound : s.noResults,
               emptySubtitle:
                   state.query.isEmpty ? s.noMusicHint : s.tryDifferentSearch,
+              showImportOnEmpty: state.query.isEmpty,
             ),
             SongListView(
               songs: state.favoriteSongs,
               library: state,
-              emptyIcon: Icons.favorite_border_rounded,
+              emptyIcon: Icons.favorite_rounded,
               emptyTitle: s.noFavoritesYet,
               emptySubtitle: s.noFavoritesHint,
             ),
           ],
         );
     }
+  }
+}
+
+/// Fades + slides a header element in once, with a small delay.
+class _Entrance extends StatelessWidget {
+  final int delay;
+  final Widget child;
+  const _Entrance({required this.delay, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 550 + delay),
+      curve: Interval(delay / (550 + delay), 1, curve: Curves.easeOutCubic),
+      builder: (_, v, c) => Opacity(
+        opacity: v,
+        child: Transform.translate(offset: Offset(0, -14 * (1 - v)), child: c),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -115,138 +196,141 @@ class _Header extends StatelessWidget {
     final cubit = context.read<LibraryCubit>();
     final s = context.s;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
+      padding: const EdgeInsets.fromLTRB(22, 14, 16, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: ShaderMask(
-              shaderCallback: (r) => AppColors.accentGradient.createShader(r),
-              child: Text(
-                s.myMusic,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  s.greeting(DateTime.now().hour),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                ShaderMask(
+                  shaderCallback: (r) => AppColors.titleGradient.createShader(r),
+                  child: Text(
+                    s.myMusic,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -0.8,
+                      height: 1.1,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          IconButton(
-            tooltip: s.language,
-            onPressed: () => _showLanguagePicker(context),
-            icon: const Icon(Icons.language_rounded),
+          GlassIconButton(
+            icon: Icons.tune_rounded,
+            tooltip: s.settings,
+            onTap: () => LibrarySheets.showSettings(context),
           ),
-          PopupMenuButton<SongSort>(
+          const SizedBox(width: 8),
+          GlassIconButton(
+            icon: Icons.swap_vert_rounded,
             tooltip: s.sort,
-            icon: const Icon(Icons.sort_rounded),
-            initialValue: state.sort,
-            onSelected: cubit.changeSort,
-            itemBuilder: (_) => SongSort.values
-                .map((sort) => PopupMenuItem(
-                      value: sort,
-                      child: Row(
-                        children: [
-                          Icon(
-                            sort == state.sort
-                                ? Icons.check_rounded
-                                : Icons.circle_outlined,
-                            size: 18,
-                            color: sort == state.sort
-                                ? AppColors.secondary
-                                : AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(sort.label(s)),
-                        ],
-                      ),
-                    ))
-                .toList(),
+            onTap: () => LibrarySheets.showSort(context),
           ),
-          IconButton(
+          const SizedBox(width: 8),
+          GlassIconButton(
+            icon: Icons.add_rounded,
             tooltip: s.importSongs,
-            onPressed: cubit.importMusic,
-            icon: const Icon(Icons.add_rounded),
+            filled: true,
+            onTap: state.isImporting ? null : cubit.importMusic,
+            child: state.isImporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.4, color: Colors.white),
+                  )
+                : null,
           ),
         ],
       ),
     );
   }
-
-  void _showLanguagePicker(BuildContext context) {
-    final localeCubit = context.read<LocaleCubit>();
-    final current = localeCubit.state.languageCode;
-    showModalBottomSheet(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(context.s.language,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            for (final lang in AppStrings.supported)
-              ListTile(
-                leading: Icon(
-                  lang.code == current
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_off_rounded,
-                  color: lang.code == current
-                      ? AppColors.secondary
-                      : AppColors.textSecondary,
-                ),
-                title: Text(lang.languageName),
-                onTap: () {
-                  localeCubit.setLanguage(lang.code);
-                  Navigator.pop(sheetContext);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-class _SearchField extends StatelessWidget {
+class _SearchField extends StatefulWidget {
   final TextEditingController controller;
   const _SearchField({required this.controller});
 
   @override
+  State<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<_SearchField> {
+  final _focus = FocusNode();
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cubit = context.read<LibraryCubit>();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: _focused ? AppColors.glassStrong : AppColors.glass,
+        border: Border.all(
+          color: _focused
+              ? AppColors.primaryLight.withValues(alpha: 0.6)
+              : AppColors.glassBorder,
+        ),
+        boxShadow: _focused ? AppColors.glow(AppColors.primary, strength: 0.35) : null,
+      ),
       child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
+        valueListenable: widget.controller,
         builder: (context, value, _) => TextField(
-          controller: controller,
+          controller: widget.controller,
+          focusNode: _focus,
           onChanged: cubit.search,
           textInputAction: TextInputAction.search,
+          style: const TextStyle(fontSize: 15),
           decoration: InputDecoration(
             hintText: context.s.searchHint,
-            hintStyle: const TextStyle(color: AppColors.textSecondary),
-            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+            hintStyle: const TextStyle(color: AppColors.textTertiary),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: _focused ? AppColors.primaryLight : AppColors.textTertiary,
+            ),
             suffixIcon: value.text.isEmpty
                 ? null
                 : IconButton(
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(Icons.close_rounded, size: 20),
                     onPressed: () {
-                      controller.clear();
+                      widget.controller.clear();
                       cubit.search('');
-                      FocusScope.of(context).unfocus();
+                      _focus.unfocus();
                     },
                   ),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
-            contentPadding: const EdgeInsets.symmetric(vertical: 0),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
       ),
@@ -263,30 +347,68 @@ class _Tabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.s;
     return Container(
-      height: 44,
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      height: 48,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.glass,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.glassBorder),
       ),
       child: TabBar(
         controller: controller,
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
         indicator: BoxDecoration(
           gradient: AppColors.accentGradient,
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppColors.glow(AppColors.primary, strength: 0.45),
         ),
         labelColor: Colors.white,
         unselectedLabelColor: AppColors.textSecondary,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+        unselectedLabelStyle:
+            const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         tabs: [
-          Tab(text: s.allSongs),
           Tab(
-            text: favoritesCount > 0
-                ? s.favoritesWithCount(favoritesCount)
-                : s.favorites,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.library_music_rounded, size: 18),
+                const SizedBox(width: 6),
+                Flexible(child: Text(s.allSongs, overflow: TextOverflow.ellipsis)),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.favorite_rounded, size: 18),
+                const SizedBox(width: 6),
+                Flexible(child: Text(s.favorites, overflow: TextOverflow.ellipsis)),
+                if (favoritesCount > 0) ...[
+                  const SizedBox(width: 6),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+                    child: Container(
+                      key: ValueKey(favoritesCount),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('$favoritesCount',
+                          style: const TextStyle(
+                              fontSize: 11.5, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -300,43 +422,23 @@ class _PermissionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.s;
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              gradient: AppColors.accentGradient,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.music_note_rounded, size: 48, color: Colors.white),
-          ),
-          const SizedBox(height: 24),
-          Text(s.allowAccessTitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text(
-            s.allowAccessBody,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: () => context.read<LibraryCubit>().load(),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-            ),
-            child: Text(s.grantAccess),
-          ),
-          TextButton(
-            onPressed: () => context.read<LibraryCubit>().openSettings(),
+    final cubit = context.read<LibraryCubit>();
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 120),
+        child: EmptyState(
+          icon: Icons.music_note_rounded,
+          title: s.allowAccessTitle,
+          subtitle: s.allowAccessBody,
+          actionLabel: s.grantAccess,
+          actionIcon: Icons.lock_open_rounded,
+          onAction: cubit.load,
+          secondary: TextButton(
+            onPressed: cubit.openSettings,
+            style: TextButton.styleFrom(foregroundColor: AppColors.primaryLight),
             child: Text(s.openSettings),
           ),
-        ],
+        ),
       ),
     );
   }

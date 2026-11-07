@@ -26,5 +26,10 @@ abstract class PlayerRepository {
   Future<void> setShuffle(bool enabled);
   Future<void> setRepeatMode(RepeatMode mode);
   Future<void> setSpeed(double speed);
+
+  /// Removes a song from the play queue (used when it is deleted).
+  /// Removing the only song stops playback.
+  Future<void> removeSong(String songId);
+
   Future<void> dispose();
 }
